@@ -242,6 +242,7 @@ int pm_exec(vir_bytes path, size_t path_len, vir_bytes frame, size_t frame_len,
   execi.args.new_gid = fp->fp_effgid;
 
   /* Get the exec file name. */
+  /* finalexec contém nome do arquivo */
   FAILCHECK(fetch_name(path, path_len, fullpath));
   strlcpy(finalexec, fullpath, PATH_MAX);
   strlcpy(firstexec, fullpath, PATH_MAX);
@@ -356,6 +357,8 @@ int pm_exec(vir_bytes path, size_t path_len, vir_bytes frame, size_t frame_len,
   FAILCHECK(r);
 
   /* Inform PM */
+  printf("Executando: %s\n", finalexec);
+  
   FAILCHECK(libexec_pm_newexec(fp->fp_endpoint, &execi.args));
 
   /* Save off PC */
