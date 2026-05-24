@@ -43,6 +43,25 @@ static int schedule_process(struct schedproc * rmp, unsigned flags);
 /* processes created by RS are sysytem processes */
 #define is_system_proc(p)	((p)->parent == RS_PROC_NR)
 
+static unsigned user_quantum_for_priority(unsigned priority)
+{
+	unsigned quantum = DEFAULT_USER_TIME_SLICE;
+	unsigned levels;
+
+	if (priority <= USER_Q)
+		return quantum; // os processos do sistema mantém-se com um quantum padrão
+
+	return quantum << (priority - USER_Q); //shift left para potência de dois
+}
+
+//função para atualizar quantum do processo
+static void update_user_quantum(struct schedproc *rmp)
+{
+	if (!is_system_proc(rmp)) {
+		rmp->time_slice = user_quantum_for_priority(rmp->priority);
+	}
+}
+
 static unsigned cpu_proc[CONFIG_MAX_CPUS];
 
 static void pick_cpu(struct schedproc * proc)
@@ -99,6 +118,7 @@ int do_noquantum(message *m_ptr)
 	if (rmp->priority < MIN_USER_Q) {
 		rmp->priority += 1; /* lower priority */
 	}
+	update_user_quantum(rmp); //atualizar quantum ao valor correspondente à nova prioridade
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
 		return rv;
@@ -172,7 +192,7 @@ int do_start_scheduling(message *m_ptr)
 		/* We have a special case here for init, which is the first
 		   process scheduled, and the parent of itself. */
 		rmp->priority   = USER_Q;
-		rmp->time_slice = DEFAULT_USER_TIME_SLICE;
+		update_user_quantum(rmp); //definir o quantum do processo em seu init 
 
 		/*
 		 * Since kernel never changes the cpu of a process, all are
@@ -204,8 +224,8 @@ int do_start_scheduling(message *m_ptr)
 				&parent_nr_n)) != OK)
 			return rv;
 
-		rmp->priority = schedproc[parent_nr_n].priority;
-		rmp->time_slice = schedproc[parent_nr_n].time_slice;
+		rmp->priority = schedproc[parent_nr_n].priority; //filho de um fork nasce na mesma fila de prioridade que o pai
+		update_user_quantum(rmp); //quantum deve ser atualizado com o valor destinado a sua prioridade
 		break;
 		
 	default: 
@@ -280,6 +300,7 @@ int do_nice(message *m_ptr)
 
 	/* Update the proc entry and reschedule the process */
 	rmp->max_priority = rmp->priority = new_q;
+	update_user_quantum(rmp); //quantum também deve ser atualizado na mudança de prioridade por um comando nice 
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
 		/* Something went wrong when rescheduling the process, roll
@@ -337,8 +358,8 @@ void init_scheduling(void)
 
 	balance_timeout = BALANCE_TIMEOUT * sys_hz();
 
-	if ((r = sys_setalarm(balance_timeout, 0)) != OK)
-		panic("sys_setalarm failed: %d", r);
+	// if ((r = sys_setalarm(balance_timeout, 0)) != OK)
+	// 	panic("sys_setalarm failed: %d", r);
 }
 
 /*===========================================================================*
