@@ -43,14 +43,6 @@ int main(void)
 
 		/* Check for system notifications first. Special cases. */
 		if (is_ipc_notify(ipc_status)) {
-			switch(who_e) {
-			case CLOCK:
-				balance_queues();
-				break;
-			default :
-				break;
-			}
-
 			continue; /* Don't reply. */
 		}
 
@@ -129,7 +121,6 @@ static int sef_cb_init_fresh(int UNUSED(type), sef_init_info_t *UNUSED(info))
 
 	if (OK != (s=sys_getmachine(&machine)))
 		panic("couldn't get machine info: %d", s);
-	/* Initialize scheduling timers, used for running balance_queues */
 	init_scheduling();
 
 	return(OK);

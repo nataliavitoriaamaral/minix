@@ -12,10 +12,7 @@
 #include <assert.h>
 #include <minix/com.h>
 #include <machine/archtypes.h>
-
-static unsigned balance_timeout;
-
-#define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
+#include "kernel/proc.h"
 
 static int schedule_process(struct schedproc * rmp, unsigned flags);
 
@@ -38,12 +35,72 @@ static int schedule_process(struct schedproc * rmp, unsigned flags);
 
 #define cpu_is_available(c)	(cpu_proc[c] >= 0)
 
-#define DEFAULT_USER_TIME_SLICE 200
+#define DEFAULT_USER_TIME_SLICE 1000 // 200 é muito pouco 
 
 /* processes created by RS are sysytem processes */
 #define is_system_proc(p)	((p)->parent == RS_PROC_NR)
 
 static unsigned cpu_proc[CONFIG_MAX_CPUS];
+
+/*===========================================================================*
+ *				count_ready_user_queue			     *
+ *===========================================================================*/
+static unsigned count_ready_user_queue(void)
+{
+	unsigned n = 0;
+	int proc_nr;
+	struct schedproc *rmp;
+	struct proc kp;
+
+	for (proc_nr = 0, rmp = schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
+		if (!(rmp->flags & IN_USE) || is_system_proc(rmp))
+			continue;
+		if (sys_getinfo(GET_PROC, &kp, sizeof(kp), 0, rmp->endpoint) != OK)
+			continue;
+		if (!proc_is_runnable(&kp) || kp.p_priority != USER_Q)
+			continue;
+		n++;
+	}
+	return n > 0 ? n : 1;
+}
+
+/*===========================================================================*
+ *				variable_quantum_ms			     *
+ *===========================================================================*/
+static unsigned variable_quantum_ms(void)
+{
+	unsigned q;
+
+	q = DEFAULT_USER_TIME_SLICE / count_ready_user_queue();
+	return q > 0 ? q : 1;
+}
+
+/*===========================================================================*
+ *				apply_variable_quantum			     *
+ *===========================================================================*/
+static void apply_variable_quantum(struct schedproc *rmp)
+{
+	if ((rmp->flags & IN_USE) && !is_system_proc(rmp))
+		rmp->time_slice = variable_quantum_ms();
+}
+
+/*===========================================================================*
+ *				reschedule_all_user_quanta		     *
+ *===========================================================================*/
+static void reschedule_all_user_quanta(void)
+{
+	unsigned q;
+	int proc_nr;
+	struct schedproc *rmp;
+
+	q = variable_quantum_ms();
+	for (proc_nr = 0, rmp = schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
+		if ((rmp->flags & IN_USE) && !is_system_proc(rmp)) {
+			rmp->time_slice = q;
+			schedule_process(rmp, SCHEDULE_CHANGE_QUANTUM);
+		}
+	}
+}
 
 static void pick_cpu(struct schedproc * proc)
 {
@@ -96,9 +153,7 @@ int do_noquantum(message *m_ptr)
 	}
 
 	rmp = &schedproc[proc_nr_n];
-	if (rmp->priority < MIN_USER_Q) {
-		rmp->priority += 1; /* lower priority */
-	}
+	apply_variable_quantum(rmp);
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
 		return rv;
@@ -130,6 +185,9 @@ int do_stop_scheduling(message *m_ptr)
 	cpu_proc[rmp->cpu]--;
 #endif
 	rmp->flags = 0; /*&= ~IN_USE;*/
+
+	if (!is_system_proc(rmp))
+		reschedule_all_user_quanta();
 
 	return OK;
 }
@@ -213,6 +271,12 @@ int do_start_scheduling(message *m_ptr)
 		assert(0);
 	}
 
+	/* Round-robin: all user processes share a single run queue. */
+	if (!is_system_proc(rmp)) {
+		rmp->priority = USER_Q;
+		rmp->max_priority = USER_Q;
+	}
+
 	/* Take over scheduling the process. The kernel reply message populates
 	 * the processes current priority and its time slice */
 	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0)) != OK) {
@@ -222,8 +286,12 @@ int do_start_scheduling(message *m_ptr)
 	}
 	rmp->flags = IN_USE;
 
-	/* Schedule the process, giving it some quantum */
+	/* Schedule the process, giving it a variable quantum (DEFAULT/n). */
 	pick_cpu(rmp);
+	if (!is_system_proc(rmp)) {
+		apply_variable_quantum(rmp);
+		reschedule_all_user_quanta();
+	}
 	while ((rv = schedule_process(rmp, SCHEDULE_CHANGE_ALL)) == EBADCPU) {
 		/* don't try this CPU ever again */
 		cpu_proc[rmp->cpu] = CPU_DEAD;
@@ -278,8 +346,9 @@ int do_nice(message *m_ptr)
 	old_q     = rmp->priority;
 	old_max_q = rmp->max_priority;
 
-	/* Update the proc entry and reschedule the process */
-	rmp->max_priority = rmp->priority = new_q;
+	/* Round-robin: nice does not change the run queue. */
+	rmp->max_priority = rmp->priority = USER_Q;
+	apply_variable_quantum(rmp);
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
 		/* Something went wrong when rescheduling the process, roll
@@ -333,37 +402,14 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
  *===========================================================================*/
 void init_scheduling(void)
 {
-	int r;
-
-	balance_timeout = BALANCE_TIMEOUT * sys_hz();
-
-	if ((r = sys_setalarm(balance_timeout, 0)) != OK)
-		panic("sys_setalarm failed: %d", r);
+	/* Round-robin: no periodic queue balancing. */
 }
 
 /*===========================================================================*
  *				balance_queues				     *
  *===========================================================================*/
 
-/* This function in called every N ticks to rebalance the queues. The current
- * scheduler bumps processes down one priority when ever they run out of
- * quantum. This function will find all proccesses that have been bumped down,
- * and pulls them back up. This default policy will soon be changed.
- */
 void balance_queues(void)
 {
-	struct schedproc *rmp;
-	int r, proc_nr;
-
-	for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
-		if (rmp->flags & IN_USE) {
-			if (rmp->priority > rmp->max_priority) {
-				rmp->priority -= 1; /* increase priority */
-				schedule_process_local(rmp);
-			}
-		}
-	}
-
-	if ((r = sys_setalarm(balance_timeout, 0)) != OK)
-		panic("sys_setalarm failed: %d", r);
+	/* Round-robin: MLFQ boost disabled. */
 }

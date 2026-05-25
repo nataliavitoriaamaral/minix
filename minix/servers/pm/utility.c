@@ -92,12 +92,8 @@ int nice_to_priority(int nice, unsigned* new_q)
 {
 	if (nice < PRIO_MIN || nice > PRIO_MAX) return(EINVAL);
 
-	*new_q = MAX_USER_Q + (nice-PRIO_MIN) * (MIN_USER_Q-MAX_USER_Q+1) /
-	    (PRIO_MAX-PRIO_MIN+1);
-
-	/* Neither of these should ever happen. */
-	if ((signed) *new_q < MAX_USER_Q) *new_q = MAX_USER_Q;
-	if (*new_q > MIN_USER_Q) *new_q = MIN_USER_Q;
+	/* Round-robin: all user processes use a single run queue. */
+	*new_q = USER_Q;
 
 	return (OK);
 }
