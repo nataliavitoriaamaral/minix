@@ -11,6 +11,7 @@
 #include "schedproc.h"
 #include <assert.h>
 #include <minix/com.h>
+#include <minix/timers.h>
 #include <machine/archtypes.h>
 #include "kernel/proc.h"
 
@@ -35,7 +36,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags);
 
 #define cpu_is_available(c)	(cpu_proc[c] >= 0)
 
-#define DEFAULT_USER_TIME_SLICE 1000 // 200 é muito pouco 
+#define DEFAULT_USER_TIME_SLICE 1000 // 200 eh muito pouco 
 
 /* processes created by RS are sysytem processes */
 #define is_system_proc(p)	((p)->parent == RS_PROC_NR)
