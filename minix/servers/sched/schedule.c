@@ -40,17 +40,21 @@ static int schedule_process(struct schedproc * rmp, unsigned flags);
 
 #define DEFAULT_USER_TIME_SLICE 20
 
+#define DEFAULT_SYS_TIME_SLICE 200
+
 /* processes created by RS are sysytem processes */
 #define is_system_proc(p)	((p)->parent == RS_PROC_NR)
 
 static unsigned user_quantum_for_priority(unsigned priority)
 {
-	unsigned quantum = DEFAULT_USER_TIME_SLICE;
-	unsigned levels;
+	unsigned quantum;
 
-	if (priority <= USER_Q)
+	if (priority < USER_Q){
+		quantum = DEFAULT_SYS_TIME_SLICE;
 		return quantum; // os processos do sistema mantém-se com um quantum padrão
-
+	}
+	
+	quantum = DEFAULT_USER_TIME_SLICE;
 	return quantum << (priority - USER_Q); //shift left para potência de dois
 }
 
