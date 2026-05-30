@@ -97,7 +97,8 @@ int do_noquantum(message *m_ptr)
 
 	rmp = &schedproc[proc_nr_n];
 	if (rmp->priority < MIN_USER_Q) {
-		rmp->priority += 1; /* lower priority */
+		/* rmp->priority += 1; /* lower priority */  
+		// No FCFS, não rebaixa a prioridade de um processo. 
 	}
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
@@ -213,6 +214,13 @@ int do_start_scheduling(message *m_ptr)
 		assert(0);
 	}
 
+    /* FCFS: Força apenas processos de usuário para a USER_Q 
+	/* Se o processo for do kernel, a fila será menor que USER_Q (7), logo não irá entrar no if. 
+	*/
+    if (rmp->priority >= USER_Q) {
+    	rmp->priority = USER_Q;
+	}
+
 	/* Take over scheduling the process. The kernel reply message populates
 	 * the processes current priority and its time slice */
 	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0)) != OK) {
@@ -267,6 +275,13 @@ int do_nice(message *m_ptr)
 		"%d\n", m_ptr->m_pm_sched_scheduling_set_nice.endpoint);
 		return EBADEPT;
 	}
+
+	/* Não permitir que um usuário mude a prioridade de um processo. 
+	 * Retornando OK, as validações são feitas, mas a prioridade não é alterada.
+	 */ 
+	*
+	*/
+	return OK;
 
 	rmp = &schedproc[proc_nr_n];
 	new_q = m_ptr->m_pm_sched_scheduling_set_nice.maxprio;
@@ -350,20 +365,27 @@ void init_scheduling(void)
  * quantum. This function will find all proccesses that have been bumped down,
  * and pulls them back up. This default policy will soon be changed.
  */
-void balance_queues(void)
-{
-	struct schedproc *rmp;
-	int r, proc_nr;
+void balance_queues(void) {
 
-	for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
-		if (rmp->flags & IN_USE) {
-			if (rmp->priority > rmp->max_priority) {
-				rmp->priority -= 1; /* increase priority */
-				schedule_process_local(rmp);
-			}
-		}
-	}
+	/* A estrutura da função foi toda comentada, pois na nossa estratégia de FCFS 
+	*  não há rebaixamento de prioridade nos processos do usuário
+	*/
 
-	if ((r = sys_setalarm(balance_timeout, 0)) != OK)
-		panic("sys_setalarm failed: %d", r);
+
+	/*
+	* struct schedproc *rmp;
+	* int r, proc_nr;
+	*
+	* for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
+	*	if (rmp->flags & IN_USE) {
+	*		if (rmp->priority > rmp->max_priority) {
+	*			rmp->priority -= 1; /* increase priority 
+	*			schedule_process_local(rmp);
+	*		}
+	*	}
+	* }
+	*
+	* if ((r = sys_setalarm(balance_timeout, 0)) != OK)
+	* 	panic("sys_setalarm failed: %d", r);
+	*/
 }

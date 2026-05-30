@@ -1893,8 +1893,16 @@ static void notify_scheduler(struct proc *p)
 void proc_no_time(struct proc * p)
 {
 	if (!proc_kernel_scheduler(p) && priv(p)->s_flags & PREEMPTIBLE) {
-		/* this dequeues the process */
-		notify_scheduler(p);
+		/* Desativando a preempção por tempo
+         * Comentamos a chamada que faria o dequeue do processo.
+         * Agora, renovamos o quantum do processo, até que ele termine ou peça I/O.
+		 *
+		 * Isso é melhor do que simplesmente deixar o quantum infinito,
+		 * pois o quantum também é utilizado para cálculos internos da CPU.
+         */
+        
+        // notify_scheduler(p);
+		p->p_cpu_time_left = ms_2_cpu_time(p->p_quantum_size_ms);
 	}
 	else {
 		/*
