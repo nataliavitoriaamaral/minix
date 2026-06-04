@@ -357,7 +357,7 @@ int pm_exec(vir_bytes path, size_t path_len, vir_bytes frame, size_t frame_len,
   FAILCHECK(r);
 
   /* Inform PM */
-  printf("Executando: %s\n", finalexec);
+	strlcpy(execi.args.execpath, finalexec, sizeof(execi.args.execpath));
   
   FAILCHECK(libexec_pm_newexec(fp->fp_endpoint, &execi.args));
 

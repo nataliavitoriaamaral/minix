@@ -27,6 +27,7 @@ struct exec_info {
     size_t hdr_len;                     /* Size of hdr */
     vir_bytes frame_len;                /* Stack size */
     char progname[PROC_NAME_LEN];       /* Program name */
+    char execpath[PATH_MAX];            /* Full resolved executable path */
     uid_t new_uid;                      /* Process UID after exec */
     gid_t new_gid;                      /* Process GID after exec */
     int allow_setuid;                   /* Allow set{u,g}id execution? */
