@@ -1,4 +1,20 @@
-./teste_processos 10 1000000 100000000 > resultados_rr_10.txt && \
-./teste_processos 50 1000000 100000000 > resultados_rr_50.txt && \
-./teste_processos 100 1000000 100000000 > resultados_rr_100.txt && \
-./teste_processos 200 1000000 100000000 > resultados_rr_200.txt 
+./teste_processos 10 1000000 100000000 > resultados1_rr_10.txt && \
+./teste_processos 50 1000000 100000000 > resultados1_rr_50.txt && \
+./teste_processos 100 1000000 100000000 > resultados1_rr_100.txt && \
+./teste_processos 200 1000000 100000000 > resultados1_rr_200.txt && \
+./teste_processos 10 1000000 100000000 > resultados2_rr_10.txt && \
+./teste_processos 50 1000000 100000000 > resultados2_rr_50.txt && \
+./teste_processos 100 1000000 100000000 > resultados2_rr_100.txt && \
+./teste_processos 200 1000000 100000000 > resultados2_rr_200.txt && \
+./teste_processos 10 1000000 100000000 > resultados3_rr_10.txt && \
+./teste_processos 50 1000000 100000000 > resultados3_rr_50.txt && \
+./teste_processos 100 1000000 100000000 > resultados3_rr_100.txt && \
+./teste_processos 200 1000000 100000000 > resultados3_rr_200.txt && \
+./teste_processos 10 1000000 100000000 > resultados4_rr_10.txt && \
+./teste_processos 50 1000000 100000000 > resultados4_rr_50.txt && \
+./teste_processos 100 1000000 100000000 > resultados4_rr_100.txt && \
+./teste_processos 200 1000000 100000000 > resultados4_rr_200.txt && \
+./teste_processos 10 1000000 100000000 > resultados5_rr_10.txt && \
+./teste_processos 50 1000000 100000000 > resultados5_rr_50.txt && \
+./teste_processos 100 1000000 100000000 > resultados5_rr_100.txt && \
+./teste_processos 200 1000000 100000000 > resultados5_rr_200.txt
