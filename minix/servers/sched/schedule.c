@@ -51,7 +51,7 @@ static unsigned user_quantum_for_priority(unsigned priority)
 
 	if (priority < USER_Q){
 		quantum = DEFAULT_SYS_TIME_SLICE;
-		return quantum; // os processos do sistema mantém-se com um quantum padrão
+		return quantum; //caso haja um processo de usuário que tenha sua prioridade definida fora das filas de usuário (ex: a partir de um nice), utilizamos o quantum base definido pelo MINIX 3.4.0rc6 como segurança
 	}
 	
 	quantum = DEFAULT_USER_TIME_SLICE;
